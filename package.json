@@ -1,0 +1,14 @@
+{
+  "name": "chaos-painting",
+  "version": "0.0.0",
+  "description": "A chaotic difital painting application.",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "Thomas Britton <britton.tm@gmail.com>",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^29.5.0"
+  }
+}
