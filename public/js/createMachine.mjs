@@ -21,6 +21,11 @@ const createMachine = (machineDefinition) => {
     previousState: null,
     currentState: machineDefinition.initialState,
 
+    /**
+     * Transition machine to a new state.
+     * @param {string} event 
+     * @returns 
+     */
     transition: (event) => {
       const currentStateDefinition = machineDefinition[machine.currentState];
       const destinationTransition = currentStateDefinition.transitions[event];
