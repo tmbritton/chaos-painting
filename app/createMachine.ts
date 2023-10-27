@@ -1,38 +1,34 @@
 import { Message } from "./types"
-import createObservable, {Observer, Subscription} from "./observable"
+import createObservable, {Observer, Subscription, Observable} from "./observable"
 
 interface StateDefinition {
   isInitial?: boolean,
   isExit?: boolean,
   actions?: {
-    onEnter?: () => void,
-    onExit?: () => void,
+    onEnter?: (context: MachineContext) => void,
+    onExit?: (context: MachineContext) => void,
   }
-  reducer?: (context: MachineContext, payload: {[key: string]: any}) => MachineContext
+  events?: {
+    [key:string] : {
+      target?: 'string',
+      reducer?: (context: MachineContext, payload: {[key: string]: any}) => MachineContext
+    }
+  }
 }
 
 interface MachineContext {
   [key: string]: any
 }
 
-interface Transition {
-  target: string,
-  reducer?: (context: MachineContext, payload: Message['payload']) => void
-}
-
 type MachineDefinition = {
-  initialState: string;
   initialContext?: MachineContext
   states: {
     [key: string]: StateDefinition;
   }
-  transitions: {
-    [key: string]: Transition
-  };
 }
 
-type StateMachine = {
-  currentState: string;
+export type CurrentState = {
+  state: string;
   context: MachineContext;
 }
 
@@ -45,7 +41,12 @@ const findInitialState = (states: {[key: string]: StateDefinition}) => {
 }
 
 const createMachine = (machineDefinition: MachineDefinition) => {
-  let current: StateMachine
+  let current: CurrentState = {
+    state: '',
+    context: {}
+  }
+
+  let machineObservable: Observable;
 
   const init = () => {
     const initialState = findInitialState(machineDefinition.states)
@@ -53,72 +54,65 @@ const createMachine = (machineDefinition: MachineDefinition) => {
       throw new Error('No initial state defined')
     }
     // Call transition instead to create observable
-    current.currentState = initialState
-    current.context = machineDefinition.initialContext || {}
+    current.context = machineDefinition.initialContext || {};
+    transition(initialState)
   }
 
-  const transition = (state: string, payload?:{[key: string]: any} ) => {
-    if (!machineDefinition?.states?.[state]) {
-      throw new Error('Transition state is not defined')
-    }
-    if (machineDefinition?.states?.[current?.currentState]?.actions?.onExit) {
-      // @ts-ignore
-      machineDefinition?.states?.[current?.currentState]?.actions?.onExit()
-    }
-    if (machineDefinition?.states?.[state]?.reducer && payload) {
-      // @ts-ignore
-      machineDefinition?.states?.[state]?.reducer(current.context, payload)
-    }
-  }
+  const transition = (event: string, payload?:{[key: string]: any} ): void => {
+    machineObservable = machineObservable || createObservable((observer) => {
+      // Exit early if we have no event handler for event.
+      if (current.state && !machineDefinition?.states?.[current.state].events?.[event]) {
+        observer.error(`State ${current.state} has no handler for event ${event}`)
+        return;
+      }
 
-  init();
-  /**
-   * Private API:
-   *  - init
-   *    Take machineDefinition call transition to create machine object and observer
-   *  - transition
-   *    Transitions machine to new state, calls onEnter, onExit, and reducer functions
-   * Public API:
-   *  - dispatch
-   *    Receives events, calls transition
-   *  - subscribe
-   *    Subscribe to events emitted by machine observable
-   */
-  /*
-  let subscribe: Subscription;
-  //let machineObserverable: typeof createObservable;
-  const machine: StateMachine = {
-    currentState: machineDefinition.initialState,
-    context: machineDefinition.context,
-    dispatch: (event: Message) => {
-      const machineObserverable = createObservable((observer) => {
-        const currentStateDefinition = machineDefinition[machine.currentState];
-        const destinationTransition = currentStateDefinition.transitions[event.type];
-    
-        if (!destinationTransition) {
-          observer.error('Destination transition does not exist.')
+      const transitionTarget = machineDefinition?.states?.[current.state]?.events?.[event].target;
+
+      // Calculate new context in reducer function, if it's defined.
+      if (machineDefinition?.states?.[current.state]?.events?.[event]?.reducer) {
+        // @ts-ignore
+        current.context = machineDefinition?.states?.[current.state]?.events?.[event]?.reducer({...current.context}, payload)
+      }
+
+
+      if (transitionTarget) {
+        // Call current state onExit function, if it exists
+        if (machineDefinition?.states?.[current?.state]?.actions?.onExit) {
+          // @ts-ignore
+          machineDefinition?.states?.[current?.currentState]?.actions?.onExit({...current.context});
         }
 
-        const destinationState = destinationTransition.target;
-        const destinationStateDefinition = machineDefinition[destinationState];
+        // Set current state to transition target
+        current.state = transitionTarget;
 
-        machine.context = destinationTransition.reducer(machine.context, event.payload);
-        currentStateDefinition.actions.onExit();
-        destinationStateDefinition.actions.onEnter();
+        // Call the new state's onEnter function, if it is defined.
+        if (machineDefinition?.states?.[event]?.actions?.onEnter) {
+          // @ts-ignore
+          machineDefinition?.states?.[state]?.actions?.onEnter()
+        }
+      }
 
-        machine.currentState = destinationState;
+      // Emit the new state and context.
+      observer.next(current)
 
-        observer.next(machine.currentState);
-      });
-      subscribe = machineObserverable.subscribe
-    },
+      // Call the observer complete function if we've transitioned to the exit state.
+      if (machineDefinition?.states?.[current.state]?.isExit) {
+        observer.complete()
+      }
+    })
+  };
+
+  const dispatch = (e: Message) => {
+    transition(e.type, e.payload)
   }
-  */
+
+  init()
 
   return {
-    //subscribe: subscribe,
-    //dispatch: machine.dispatch
-  };
+    // @ts-ignore
+    subscribe: machineObservable.subscribe,
+    dispatch
+  }
 };
 
 export default createMachine;

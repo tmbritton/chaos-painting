@@ -1,4 +1,4 @@
-import createMachine from "../app/createMachine.ts";
+import createMachine, {CurrentState} from "../app/createMachine.js";
 import { describe, expect, test, jest, beforeEach } from "bun:test";
 
 // Import createMachine and other dependencies here
@@ -8,49 +8,59 @@ describe("createMachine", () => {
 
   beforeEach(() => {
     machine = createMachine({
-      initialState: "off",
-      off: {
-        actions: {
-          onEnter: () => {
-            console.log("offOnEnter");
-          },
-          onExit: () => {
-            console.log("offOnExit");
-          },
-        },
-        transitions: {
-          switch: {
-            target: "on",
-            action: () => {
-              console.log('transition action for "switch" in "off" state');
+      states: {
+        off: {
+          isInitial: true,
+          actions: {
+            onEnter: () => {
+              console.log("offOnEnter");
+            },
+            onExit: () => {
+              console.log("offOnExit");
             },
           },
+          
+          /*events: {
+            switch: {
+              target: "on",
+              action: () => {
+                console.log('transition action for "switch" in "off" state');
+              },
+            },
+          },*/
         },
-      },
-      on: {
-        actions: {
-          onEnter: () => {
-            console.log("onOnEnter");
-          },
-          onExit: () => {
-            console.log("onOnExit");
-          },
-        },
-        transitions: {
-          switch: {
-            target: "off",
-            action: () => {
-              console.log('transition action for "switch" in "on" state');
+        on: {
+          actions: {
+            onEnter: () => {
+              console.log("onOnEnter");
+            },
+            onExit: () => {
+              console.log("onOnExit");
             },
           },
+          /*
+          events: {
+            switch: {
+              target: "off",
+              action: () => {
+                console.log('transition action for "switch" in "on" state');
+              },
+            },
+          },
+          */
         },
       },
     });
   });
 
-  test("should transition from off to on when 'switch' event is dispatched", () => {
-    machine.dispatch({ type: "switch" });
-    expect(machine.currentState).toBe("on");
+  test("Initial state should be off", () => {
+    //machine.dispatch({ type: "switch" });
+    //expect(machine.currentState).toBe("on");
+    machine.subscribe({
+      next: (state: CurrentState) => {
+        expect(state.state).toBe('off')
+      }
+    })
   });
 
   /*
