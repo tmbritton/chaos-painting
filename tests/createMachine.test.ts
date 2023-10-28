@@ -1,10 +1,10 @@
-import createMachine, {CurrentState} from "../app/createMachine.js";
+import createMachine, {CurrentState, StateMachine} from "../app/createMachine.js";
 import { describe, expect, test, jest, beforeEach } from "bun:test";
 
 // Import createMachine and other dependencies here
 
 describe("createMachine", () => {
-  let machine;
+  let machine: StateMachine;
 
   beforeEach(() => {
     machine = createMachine({
@@ -13,64 +13,62 @@ describe("createMachine", () => {
           isInitial: true,
           actions: {
             onEnter: () => {
-              console.log("offOnEnter");
+              console.log("off Enter");
             },
             onExit: () => {
-              console.log("offOnExit");
+              console.log("off Exit");
             },
           },
-          
-          /*events: {
+          events: {
             switch: {
               target: "on",
-              action: () => {
-                console.log('transition action for "switch" in "off" state');
-              },
             },
-          },*/
+          },
         },
         on: {
           actions: {
             onEnter: () => {
-              console.log("onOnEnter");
+              console.log("On Enter");
             },
             onExit: () => {
-              console.log("onOnExit");
+              console.log("On Exit");
             },
           },
-          /*
           events: {
             switch: {
               target: "off",
-              action: () => {
-                console.log('transition action for "switch" in "on" state');
-              },
             },
           },
-          */
         },
       },
     });
   });
 
   test("Initial state should be off", () => {
-    //machine.dispatch({ type: "switch" });
-    //expect(machine.currentState).toBe("on");
     machine.subscribe({
       next: (state: CurrentState) => {
         expect(state.state).toBe('off')
-      }
+      },
+      error: (e) => {console.log(e)},
+      complete: () => {console.log('complete')}
     })
   });
 
-  /*
-  test("should execute onEnter and onExit actions correctly", () => {
+  test("state should be 'on' after a switch event", () => {
+    let currentState = ''
+
+    machine.subscribe({
+      next: (state: CurrentState) => {
+        currentState = state.state;
+      },
+      error: (e) => {console.log(e)},
+      complete: () => {console.log('complete')}
+    })
     machine.dispatch({ type: "switch" });
-    expect(machine.currentState).toBe("on");
-    expect(offOnExit).toHaveBeenCalled();
-    expect(onOnEnter).toHaveBeenCalled();
+    expect(currentState).toBe("on");
   });
 
+  /*
   test("should handle transitions and actions correctly", () => {
     machine.dispatch({ type: "switch" });
     expect(machine.currentState).toBe("on");

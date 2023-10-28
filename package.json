@@ -8,5 +8,5 @@
   },
   "author": "Thomas Britton <britton.tm@gmail.com>",
   "license": "ISC",
-  "devDependencies": {}
+  "devDependencies": { "bun-types": "^1.0.7" }
 }
