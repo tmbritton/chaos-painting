@@ -1,5 +1,10 @@
-import createMachine, {CurrentState, StateMachine} from "../app/createMachine.js";
-import { describe, expect, test, jest, beforeEach } from "bun:test";
+import createMachine, {
+  CurrentState,
+  StateMachine,
+  getTransitionTarget,
+  MachineContext,
+} from '../app/createMachine.js';
+import { describe, expect, test, jest, beforeEach } from 'bun:test';
 
 // Import createMachine and other dependencies here
 const offOnEnter = jest.fn();
@@ -7,7 +12,7 @@ const offOnExit = jest.fn();
 const onOnEnter = jest.fn();
 const onOnExit = jest.fn();
 
-describe("createMachine", () => {
+describe('createMachine', () => {
   let machine: StateMachine;
 
   beforeEach(() => {
@@ -25,7 +30,7 @@ describe("createMachine", () => {
           },
           events: {
             switch: {
-              target: "on",
+              target: 'on',
             },
           },
         },
@@ -40,7 +45,7 @@ describe("createMachine", () => {
           },
           events: {
             switch: {
-              target: "off",
+              target: 'off',
             },
           },
         },
@@ -48,51 +53,181 @@ describe("createMachine", () => {
     });
   });
 
-  test("Initial state should be off", () => {
+  test('Initial state should be off', () => {
     machine.subscribe({
       next: (state: CurrentState) => {
-        expect(state.state).toBe('off')
+        expect(state.state).toBe('off');
       },
-      error: (e) => {console.log(e)},
-      complete: () => {console.log('complete')}
-    })
+      error: (e) => {
+        console.log(e);
+      },
+      complete: () => {
+        console.log('complete');
+      },
+    });
   });
 
   test("state should be 'on' after a switch event", () => {
-    let currentState = ''
+    let currentState = '';
 
     machine.subscribe({
       next: (state: CurrentState) => {
         currentState = state.state;
       },
-      error: (e) => {console.log(e)},
-      complete: () => {console.log('complete')}
-    })
-    machine.dispatch({ type: "switch" });
-    expect(currentState).toBe("on");
+      error: (e) => {
+        console.log(e);
+      },
+      complete: () => {
+        console.log('complete');
+      },
+    });
+    machine.dispatch({ type: 'switch' });
+    expect(currentState).toBe('on');
   });
 
-  test("should call transition onEnter and onExit functions", () => {
-    machine.subscribe({
-      next: (_state: CurrentState) => {},
-      error: (e) => {console.log(e)},
-      complete: () => {console.log('complete')}
-    })
-    machine.dispatch({ type: "switch" });
-
-    expect(offOnEnter).toHaveBeenCalled()
-    expect(offOnExit).toHaveBeenCalled()
-    expect(onOnEnter).toHaveBeenCalled()
-  });
-
-  test("should throw error for non-existent transition", () => {
+  test('should call transition onEnter and onExit functions', () => {
     machine.subscribe({
       next: (_state: CurrentState) => {},
       error: (e) => {
-        expect(e).toEqual('State off has no handler for event Balls')
+        console.log(e);
       },
-      complete: () => {}
-    })
-    machine.dispatch({ type: 'Balls'});
+      complete: () => {
+        console.log('complete');
+      },
+    });
+    machine.dispatch({ type: 'switch' });
+
+    expect(offOnEnter).toHaveBeenCalled();
+    expect(offOnExit).toHaveBeenCalled();
+    expect(onOnEnter).toHaveBeenCalled();
   });
+
+  test('should throw error for non-existent transition', () => {
+    machine.subscribe({
+      next: (_state: CurrentState) => {},
+      error: (e) => {
+        expect(e).toEqual('State off has no handler for event Balls');
+      },
+      complete: () => {},
+    });
+    machine.dispatch({ type: 'Balls' });
+  });
+});
+
+test('should use a reducer to make changes to machine context', () => {
+  let machine: StateMachine;
+  let context: MachineContext;
+
+  machine = createMachine({
+    initialContext: {
+      count: 0,
+    },
+    states: {
+      off: {
+        isInitial: true,
+        events: {
+          switch: {
+            target: 'on',
+            reducer: (currentContext, _payload) => {
+              // Example: Increment a value in the context
+              return { ...currentContext, count: currentContext.count + 1 };
+            },
+          },
+        },
+      },
+      on: {},
+    },
+  });
+
+  machine.subscribe({
+    next: (state: CurrentState) => {
+      context = state.context;
+    },
+    error: (error) => {
+      console.log(error);
+    },
+    complete: () => {},
+  });
+
+  machine.dispatch({ type: 'switch' });
+
+  // Assert that the context has been updated by the reducer
+  expect(context.count).toBe(1);
+});
+
+test('If target is a function, it should call that function to determine the next state', () => {
+  let machine: StateMachine;
+  let currentState = '';
+
+  machine = createMachine({
+    initialContext: {
+      isConditionMet: true,
+    },
+    states: {
+      off: {
+        isInitial: true,
+        events: {
+          switch: {
+            target: (_currentState, context) => {
+              // Example: Determine the next state based on a condition
+              return context.isConditionMet ? 'on' : 'off';
+            },
+          },
+        },
+      },
+      on: {},
+    },
+  });
+
+  machine.subscribe({
+    next: (state: CurrentState) => {
+      currentState = state.state;
+    },
+    error: (error) => {
+      console.log(error);
+    },
+    complete: () => {},
+  });
+
+  machine.dispatch({ type: 'switch' });
+
+  // Assert that the currentState has been updated by the target function
+  expect(currentState).toBe('on'); // Assuming isConditionMet is true in this test case
+});
+
+test('getTransitionTarget works as expected', () => {
+  const states = {
+    off: {
+      isInitial: true,
+      events: {
+        switch: {
+          target: 'on',
+        },
+      },
+    },
+    on: {
+      events: {
+        switch: {
+          target: 'off',
+        },
+      },
+    },
+  };
+
+  let target = getTransitionTarget('on', 'off', {}, states);
+  expect(target).toBe('on');
+
+  target = getTransitionTarget('off', 'on', {}, states);
+  expect(target).toBe('off');
+
+  target = getTransitionTarget(undefined, 'off', {}, states);
+  expect(target).toBeUndefined();
+
+  target = getTransitionTarget(
+    (_currentState, _context) => 'on',
+    'off',
+    {},
+    states
+  );
+  expect(target).toBe('on');
 });
