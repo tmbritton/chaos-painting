@@ -2,7 +2,7 @@ import { Message, Dispatch, Payload } from './types';
 import createObservable, { Subscription } from './observable';
 
 export type NextTargetFunc = (
-  currentState: string,
+  payload: Payload,
   context: MachineContext
 ) => string;
 
@@ -58,7 +58,7 @@ const findInitialState = (states: { [key: string]: StateDefinition }) => {
  * If machine is initialized, get it from the target in the machine definition
  * Otherwise get the initial state
  * If target is a string, use that.
- * If target is a function, determine the next state from the current state and context.
+ * If target is a function, determine the next state from the message payload and context.
  * Otherwise get the initial state
  * If transition target is undefined there is no transition defined for the event
  */
@@ -66,7 +66,8 @@ export const getTransitionTarget = (
   target: undefined | string | NextTargetFunc,
   currentState: string,
   context: MachineContext,
-  states: { [key: string]: StateDefinition }
+  states: { [key: string]: StateDefinition },
+  payload: Payload
 ): string | undefined => {
   if (!currentState) {
     return findInitialState(states);
@@ -78,7 +79,7 @@ export const getTransitionTarget = (
     return target;
   }
   if (typeof target === 'function') {
-    return target(currentState, context);
+    return target(payload, context);
   }
 };
 
@@ -125,7 +126,8 @@ const createMachine = (machineDefinition: MachineDefinition): StateMachine => {
           machineDefinition?.states?.[current.state]?.events?.[event]?.target,
           current.state,
           current.context,
-          machineDefinition.states
+          machineDefinition.states,
+          payload
         );
 
         if (transitionTarget) {
