@@ -214,20 +214,36 @@ test('getTransitionTarget works as expected', () => {
     },
   };
 
-  let target = getTransitionTarget('on', 'off', {}, states);
+  let target = getTransitionTarget('on', 'off', {}, states, {});
   expect(target).toBe('on');
 
-  target = getTransitionTarget('off', 'on', {}, states);
+  target = getTransitionTarget('off', 'on', {}, states, {});
   expect(target).toBe('off');
 
-  target = getTransitionTarget(undefined, 'off', {}, states);
+  target = getTransitionTarget(undefined, 'off', {}, states, {});
   expect(target).toBeUndefined();
 
   target = getTransitionTarget(
-    (_currentState, _context) => 'on',
+    (payload, _context) => {
+      // Example: Determine the next state based on payload
+      return payload.isConditionMet ? 'on' : 'off';
+    },
     'off',
     {},
-    states
+    states,
+    { isConditionMet: true }
   );
   expect(target).toBe('on');
+
+  // Additional test with a different payload condition
+  target = getTransitionTarget(
+    (payload, _context) => {
+      return payload.isConditionMet ? 'on' : 'off';
+    },
+    'off',
+    {},
+    states,
+    { isConditionMet: false }
+  );
+  expect(target).toBe('off');
 });
